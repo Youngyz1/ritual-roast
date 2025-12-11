@@ -1,0 +1,216 @@
+# Ritual Roast Infrastructure & Deployment
+
+This README provides a complete guide for running **Ritual Roast**, deploying its backend and frontend infrastructure on AWS using **Terraform**, **ECS Fargate**, **ECR**, **RDS**, **Secrets Manager**, **CloudFront**, and **GitHub Actions**.
+
+---
+
+## 📦 Project Structure
+
+```
+ritual-roast-code/
+├── infra/                 # All Terraform IaC files
+├── src/                   # Backend / frontend application code
+├── Dockerfile
+└── .github/workflows/     # CI/CD pipelines
+```
+
+---
+
+## 🔧 Requirements
+
+Before deploying, install:
+
+* **Terraform ≥ 1.6**
+* **AWS CLI v2**
+* **Docker**
+* **GitHub account + repo**
+* **AWS IAM user** with permissions:
+
+  * `AdministratorAccess` (recommended for simplicity during setup)
+
+---
+
+## 📑 Environment Variables (Terraform)
+
+Terraform expects these variables:
+
+| Variable         | Description                               |
+| ---------------- | ----------------------------------------- |
+| `env`            | Environment name (e.g., `prod`, `dev`)    |
+| `region`         | AWS region (e.g., `us-east-1`)            |
+| `domain`         | Root domain (e.g., `ofiliyoungyz.site`)   |
+| `hosted_zone_id` | Route53 Hosted Zone ID (if using Route53) |
+| `db_username`    | RDS username                              |
+
+You may define them in `terraform.tfvars`.
+
+---
+
+## 🔐 Secrets Manager
+
+Terraform automatically:
+
+* Generates a **strong DB password** using `random_password`
+* Creates a **unique secret name** to avoid AWS naming collisions
+* Stores username + password as JSON
+
+The secret ARN is available via:
+
+```
+terraform output secretsmanager_db_secret_arn
+```
+
+---
+
+## 🗄️ Database (RDS MySQL)
+
+Terraform provisions:
+
+* MySQL RDS instance
+* Secure password from Secrets Manager
+* Security groups
+* Subnet groups
+
+The DB endpoint is available via:
+
+```
+terraform output rds_endpoint
+```
+
+---
+
+## 🐳 Docker & ECR
+
+Terraform creates an **ECR repository** named:
+
+```
+ritual-roast
+```
+
+You can push your image manually:
+
+```
+aws ecr get-login-password --region <region> | \
+  docker login --username AWS --password-stdin <account>.dkr.ecr.<region>.amazonaws.com
+
+docker build -t ritual-roast .
+docker tag ritual-roast:latest <account>.dkr.ecr.<region>.amazonaws.com/ritual-roast:latest
+docker push <account>.dkr.ecr.<region>.amazonaws.com/ritual-roast:latest
+```
+
+---
+
+## 🚀 ECS Fargate Deployment
+
+Terraform deploys:
+
+* ECS Cluster
+* Task Definition
+* Service (with autoscaling count = 2)
+* Load Balancer
+* CloudWatch logging
+
+Your app runs inside containers and receives DB credentials via AWS Secrets Manager.
+
+---
+
+## 🌍 CloudFront + HTTPS
+
+Terraform configures:
+
+* SSL Certificate via **AWS ACM**
+* CloudFront distribution
+* Origin pointing to ALB or static hosting
+* DNS validation (Route53 or Namecheap CNAME)
+
+If using **Namecheap**, create a CNAME from Terraform output:
+
+```
+terraform output acm_dns_validation_cname
+```
+
+---
+
+## 🔁 CI/CD with GitHub Actions
+
+Workflow file is stored in:
+
+```
+.github/workflows/push-and-deploy.yml
+```
+
+It automatically:
+
+1. Builds Docker image
+2. Pushes to ECR
+3. Runs `terraform apply`
+
+GitHub repository secrets required:
+
+* `AWS_ACCESS_KEY_ID`
+* `AWS_SECRET_ACCESS_KEY`
+* `AWS_REGION`
+* `AWS_ACCOUNT_ID`
+* `ECR_REPO_NAME`
+* `DOMAIN`
+* `HOSTED_ZONE_ID`
+
+---
+
+## ▶️ Deployment Steps
+
+### 1. Initialize Terraform
+
+```
+terraform init
+```
+
+### 2. Apply Infrastructure
+
+```
+terraform apply -auto-approve
+```
+
+### 3. Push Docker Image
+
+Either GitHub Actions does it automatically or do it manually.
+
+### 4. App Goes Live 🎉
+
+Visit:
+
+```
+https://<your-domain>
+```
+
+---
+
+## 🧪 Troubleshooting
+
+### ❌ "Resource already exists" errors
+
+Some AWS resources (secrets, ECR repos, ALB names) can remain locked for several hours after deletion. Terraform resolves this by using a unique name suffix.
+
+### ❌ ACM Certificate not validated
+
+Add the CNAME record exactly as Terraform outputs.
+
+### ❌ ECS service can't pull image
+
+Ensure execution role has:
+
+* `AmazonECSTaskExecutionRolePolicy`
+* `ecr:GetAuthorizationToken`
+* `secretsmanager:GetSecretValue`
+
+---
+
+## 📞 Support
+
+If you need help modifying the infrastructure, automating more workflows, or debugging AWS issues, feel free to ask.
+
+---
+
+## 🏁 Done
+
+Your entire Ritual Roast platform now deploys automatically via Terraform + GitHub Actions, with a fully managed AWS environment using best practices.

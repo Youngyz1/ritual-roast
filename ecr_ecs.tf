@@ -28,10 +28,8 @@ resource "aws_iam_policy" "ecs_secrets_policy" {
           "secretsmanager:GetSecretValue",
           "kms:Decrypt"
         ],
-        # allow ONLY the two secret keys, not the whole secret
-        Resource = [
-          "${aws_secretsmanager_secret.db.arn}*"
-        ]
+        # Allow ECS to read ONLY THIS secret version
+        Resource = aws_secretsmanager_secret_version.db_version.arn
       }
     ]
   })
@@ -57,8 +55,8 @@ resource "aws_ecs_task_definition" "ritual_task" {
 
   container_definitions = jsonencode([
     {
-      name  = "ritual-web"
-      image = "${aws_ecr_repository.ritual.repository_url}:latest"
+      name      = "ritual-web"
+      image     = "${aws_ecr_repository.ritual.repository_url}:latest"
       essential = true
 
       portMappings = [
@@ -78,20 +76,20 @@ resource "aws_ecs_task_definition" "ritual_task" {
       }
 
       environment = [
-        { name = "DB_HOST",   value = aws_db_instance.mysql.address },
-        { name = "DB_NAME",   value = "ritualdb" },
+        { name = "DB_HOST",    value = aws_db_instance.mysql.address },
+        { name = "DB_NAME",    value = "ritualdb" },
         { name = "AWS_REGION", value = var.region }
       ]
 
-      # Secrets must reference the JSON key inside the secret
+      # Secrets from Secrets Manager
       secrets = [
         {
           name      = "DB_USERNAME"
-          valueFrom = "${aws_secretsmanager_secret.db.arn}:username::"
+          valueFrom = "${aws_secretsmanager_secret_version.db_version.arn}:username"
         },
         {
           name      = "DB_PASSWORD"
-          valueFrom = "${aws_secretsmanager_secret.db.arn}:password::"
+          valueFrom = "${aws_secretsmanager_secret_version.db_version.arn}:password"
         }
       ]
     }

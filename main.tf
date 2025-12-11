@@ -83,59 +83,11 @@ resource "aws_ecs_cluster" "this" {
 }
 
 # ==========================================================
-# IAM: ECS Task Execution Role
-# ==========================================================
-resource "aws_iam_role" "ecs_execution_role" {
-  name               = "ritual-roast-ecs-execution-role"
-  assume_role_policy = data.aws_iam_policy_document.ecs_assume.json
-}
-
-data "aws_iam_policy_document" "ecs_assume" {
-  statement {
-    actions = ["sts:AssumeRole"]
-    principals {
-      type        = "Service"
-      identifiers = ["ecs-tasks.amazonaws.com"]
-    }
-  }
-}
-
-resource "aws_iam_role_policy_attachment" "ecs_execution_attach" {
-  role       = aws_iam_role.ecs_execution_role.name
-  policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
-}
-
-resource "aws_iam_role_policy" "ecs_extra_permissions" {
-  name = "ritual-roast-extra-exec-policy"
-  role = aws_iam_role.ecs_execution_role.id
-
-  policy = data.aws_iam_policy_document.ecs_extra.json
-}
-
-data "aws_iam_policy_document" "ecs_extra" {
-  statement {
-    actions = [
-      "secretsmanager:GetSecretValue",
-      "kms:Decrypt"
-    ]
-    resources = ["*"]
-  }
-}
-
-# ==========================================================
 # CloudWatch Logs
 # ==========================================================
 resource "aws_cloudwatch_log_group" "ecs_logs" {
   name              = "/ecs/ritual-roast"
   retention_in_days = 14
-}
-
-# ==========================================================
-# ECR Repository
-# ==========================================================
-resource "aws_ecr_repository" "app" {
-  name = "ritual-roast"
-  image_scanning_configuration { scan_on_push = true }
 }
 
 # ==========================================================
@@ -185,94 +137,5 @@ resource "aws_lb_listener" "app_listener" {
   default_action {
     type             = "forward"
     target_group_arn = aws_lb_target_group.app_tg.arn
-  }
-}
-
-# ==========================================================
-# ECS Task Definition
-# ==========================================================
-resource "aws_ecs_task_definition" "app" {
-  family                   = "ritual-roast-task"
-  requires_compatibilities = ["FARGATE"]
-  cpu                      = "256"
-  memory                   = "512"
-  network_mode             = "awsvpc"
-  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_execution_role.arn
-
-  container_definitions = jsonencode([
-    {
-      name      = "ritual-roast-container"
-      image     = "${aws_ecr_repository.app.repository_url}:latest"
-      essential = true
-      portMappings = [
-        { containerPort = 80 }
-      ]
-      logConfiguration = {
-        logDriver = "awslogs"
-        options = {
-          awslogs-group         = aws_cloudwatch_log_group.ecs_logs.name
-          awslogs-region        = var.region
-          awslogs-stream-prefix = "ecs"
-        }
-      }
-      environment = [
-        { name = "DB_HOST", value = aws_db_instance.mysql.address }
-      ]
-      secrets = [
-        {
-          name      = "DB_CREDENTIALS"
-          valueFrom = aws_secretsmanager_secret.db.arn
-        }
-      ]
-    }
-  ])
-}
-
-# ==========================================================
-# ECS Service with Autoscaling
-# ==========================================================
-resource "aws_ecs_service" "app" {
-  name            = "ritual-roast-service"
-  cluster         = aws_ecs_cluster.this.id
-  task_definition = aws_ecs_task_definition.app.arn
-  launch_type     = "FARGATE"
-
-  desired_count = 2
-
-  network_configuration {
-    subnets          = module.network.private_subnets
-    assign_public_ip = false
-    security_groups  = [aws_security_group.ecs_sg.id]
-  }
-
-  load_balancer {
-    target_group_arn = aws_lb_target_group.app_tg.arn
-    container_name   = "ritual-roast-container"
-    container_port   = 80
-  }
-}
-
-# Autoscaling
-resource "aws_appautoscaling_target" "ecs_target" {
-  max_capacity       = 4
-  min_capacity       = 2
-  resource_id        = "service/${aws_ecs_cluster.this.name}/${aws_ecs_service.app.name}"
-  scalable_dimension = "ecs:service:DesiredCount"
-  service_namespace  = "ecs"
-}
-
-resource "aws_appautoscaling_policy" "cpu_policy" {
-  name               = "ritual-roast-cpu-policy"
-  policy_type        = "TargetTrackingScaling"
-  resource_id        = aws_appautoscaling_target.ecs_target.resource_id
-  scalable_dimension = aws_appautoscaling_target.ecs_target.scalable_dimension
-  service_namespace  = aws_appautoscaling_target.ecs_target.service_namespace
-
-  target_tracking_scaling_policy_configuration {
-    predefined_metric_specification {
-      predefined_metric_type = "ECSServiceAverageCPUUtilization"
-    }
-    target_value = 60
   }
 }

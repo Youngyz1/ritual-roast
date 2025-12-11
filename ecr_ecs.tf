@@ -1,16 +1,24 @@
-# ECR repository for your app image
+########################################
+# ECR Repository
+########################################
 resource "aws_ecr_repository" "ritual" {
-  name                 = "ritual-roast"
+  name = "ritual-roast"
+
   image_scanning_configuration {
     scan_on_push = true
   }
-  tags = { Project = "ritual-roast" }
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
-# allow ECS task role to read Secrets Manager (task role assumed below if needed)
-# (if you already created ecs_execution_role with secrets perms, skip)
+########################################
+# IAM POLICY – ECS task needs SecretsManager access
+########################################
 resource "aws_iam_policy" "ecs_secrets_policy" {
   name = "ritual-roast-ecs-secrets-policy"
+
   policy = jsonencode({
     Version = "2012-10-17",
     Statement = [
@@ -20,8 +28,9 @@ resource "aws_iam_policy" "ecs_secrets_policy" {
           "secretsmanager:GetSecretValue",
           "kms:Decrypt"
         ],
+        # allow ONLY the two secret keys, not the whole secret
         Resource = [
-          aws_secretsmanager_secret.db.arn
+          "${aws_secretsmanager_secret.db.arn}*"
         ]
       }
     ]
@@ -33,22 +42,32 @@ resource "aws_iam_role_policy_attachment" "ecs_secrets_attach" {
   policy_arn = aws_iam_policy.ecs_secrets_policy.arn
 }
 
-# ECS Task definition pointing to ECR (uses aws_ecr_repository.ritual)
+########################################
+# ECS Task Definition
+########################################
 resource "aws_ecs_task_definition" "ritual_task" {
   family                   = "ritual-roast-task"
   requires_compatibilities = ["FARGATE"]
   network_mode             = "awsvpc"
   cpu                      = "256"
   memory                   = "512"
-  execution_role_arn       = aws_iam_role.ecs_execution_role.arn
-  task_role_arn            = aws_iam_role.ecs_execution_role.arn
+
+  execution_role_arn = aws_iam_role.ecs_execution_role.arn
+  task_role_arn      = aws_iam_role.ecs_task_role.arn
 
   container_definitions = jsonencode([
     {
       name  = "ritual-web"
       image = "${aws_ecr_repository.ritual.repository_url}:latest"
-      portMappings = [{ containerPort = 80, protocol = "tcp" }]
       essential = true
+
+      portMappings = [
+        {
+          containerPort = 80
+          protocol      = "tcp"
+        }
+      ]
+
       logConfiguration = {
         logDriver = "awslogs"
         options = {
@@ -57,26 +76,31 @@ resource "aws_ecs_task_definition" "ritual_task" {
           awslogs-stream-prefix = "ritual"
         }
       }
+
       environment = [
-        { name = "DB_HOST", value = aws_db_instance.mysql.address },
-        { name = "DB_NAME", value = "ritualdb" },
+        { name = "DB_HOST",   value = aws_db_instance.mysql.address },
+        { name = "DB_NAME",   value = "ritualdb" },
         { name = "AWS_REGION", value = var.region }
       ]
+
+      # Secrets must reference the JSON key inside the secret
       secrets = [
         {
-          name      = "DB_PASSWORD"
-          valueFrom = aws_secretsmanager_secret.db.arn
+          name      = "DB_USERNAME"
+          valueFrom = "${aws_secretsmanager_secret.db.arn}:username::"
         },
         {
-          name      = "DB_USERNAME"
-          valueFrom = aws_secretsmanager_secret.db.arn
+          name      = "DB_PASSWORD"
+          valueFrom = "${aws_secretsmanager_secret.db.arn}:password::"
         }
       ]
     }
   ])
 }
 
-# ECS Service (Fargate) — ensure you have ALB target group & security groups already
+########################################
+# ECS Service
+########################################
 resource "aws_ecs_service" "ritual_service" {
   name            = "ritual-roast-service"
   cluster         = aws_ecs_cluster.this.id
@@ -85,8 +109,8 @@ resource "aws_ecs_service" "ritual_service" {
   launch_type     = "FARGATE"
 
   network_configuration {
-    subnets         = module.network.private_subnets
-    security_groups = [aws_security_group.ecs_sg.id]
+    subnets          = module.network.private_subnets
+    security_groups  = [aws_security_group.ecs_sg.id]
     assign_public_ip = false
   }
 
@@ -96,5 +120,9 @@ resource "aws_ecs_service" "ritual_service" {
     container_port   = 80
   }
 
-  depends_on = [ aws_lb_listener.app_listener ]
+  depends_on = [
+    aws_lb_listener.app_listener,
+    aws_cloudwatch_log_group.ecs_logs,
+    aws_ecr_repository.ritual
+  ]
 }

@@ -139,21 +139,6 @@ resource "aws_ecr_repository" "app" {
 }
 
 # ==========================================================
-# Secrets Manager (DB Credentials)
-# ==========================================================
-resource "aws_secretsmanager_secret" "db" {
-  name = "ritual-roast-db-credentials"
-}
-
-resource "aws_secretsmanager_secret_version" "db_version" {
-  secret_id = aws_secretsmanager_secret.db.id
-  secret_string = jsonencode({
-    username = var.db_username
-    password = var.db_password
-  })
-}
-
-# ==========================================================
 # RDS MySQL
 # ==========================================================
 resource "aws_db_subnet_group" "db_subnet" {

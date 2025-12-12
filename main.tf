@@ -111,11 +111,6 @@ resource "aws_db_subnet_group" "db_subnet" {
   }
 }
 
-resource "random_password" "db_password" {
-  length  = 16
-  special = true
-}
-
 resource "aws_db_instance" "mysql" {
   identifier           = "ritual-roast-mysql"
   engine               = "mysql"
@@ -123,7 +118,7 @@ resource "aws_db_instance" "mysql" {
   instance_class       = "db.t3.micro"
   allocated_storage    = 20
   username             = var.db_username
-  password             = random_password.db_password.result
+  password             = aws_secretsmanager_secret_version.db_version.secret_string["password"]
   db_subnet_group_name = aws_db_subnet_group.db_subnet.name
   multi_az             = true
   publicly_accessible  = false

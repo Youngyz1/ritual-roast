@@ -1,3 +1,10 @@
+provider "aws" {
+  alias  = "virginia"
+  region = "us-east-1"
+}
+
+data "aws_caller_identity" "current" {}
+
 # --------------------------------------------------------
 # S3 STATIC SITE BUCKET
 # --------------------------------------------------------
@@ -149,51 +156,51 @@ resource "aws_s3_bucket_policy" "ritual_roast_policy" {
 # --------------------------------------------------------
 # WAF ACL (GLOBAL FOR CLOUDFRONT)
 # --------------------------------------------------------
-resource "aws_wafv2_web_acl" "ritual_roast_waf" {
-  name        = "ritual-roast-waf"
-  description = "WAF for CloudFront"
-  scope       = "CLOUDFRONT"
-
-  default_action {
-    allow {}
-  }
-
-  visibility_config {
-    metric_name                = "ritual-roast-waf"
-    cloudwatch_metrics_enabled = true
-    sampled_requests_enabled   = true
-  }
-
-  rule {
-    name     = "AWS-Auto-Block-Bad-Bots"
-    priority = 1
-
-    statement {
-      managed_rule_group_statement {
-        vendor_name = "AWS"
-        name        = "AWSManagedRulesBotControlRuleSet"
-      }
-    }
-
-    override_action {
-      none {}
-    }
-
-    visibility_config {
-      metric_name                = "bot-control"
-      cloudwatch_metrics_enabled = true
-      sampled_requests_enabled   = true
-    }
-  }
-}
-
+# resource "aws_wafv2_web_acl" "ritual_roast_waf" {
+#   name        = "ritual-roast-waf"
+#   description = "WAF for CloudFront"
+#   scope       = "CLOUDFRONT"
+#
+#   default_action {
+#     allow {}
+#   }
+#
+#   visibility_config {
+#     metric_name                = "ritual-roast-waf"
+#     cloudwatch_metrics_enabled = true
+#     sampled_requests_enabled   = true
+#   }
+#
+#   rule {
+#     name     = "AWS-Auto-Block-Bad-Bots"
+#     priority = 1
+#
+#     statement {
+#       managed_rule_group_statement {
+#         vendor_name = "AWS"
+#         name        = "AWSManagedRulesBotControlRuleSet"
+#       }
+#     }
+#
+#     override_action {
+#       none {}
+#     }
+#
+#     visibility_config {
+#       metric_name                = "bot-control"
+#       cloudwatch_metrics_enabled = true
+#       sampled_requests_enabled   = true
+#     }
+#   }
+# }
+#
 # --------------------------------------------------------
 # WAF → CLOUDFRONT ASSOCIATION (FIXED)
 # --------------------------------------------------------
-resource "aws_wafv2_web_acl_association" "ritual_roast_waf_attach" {
-  depends_on = [aws_cloudfront_distribution.ritual_roast_cdn]
-
-  # CORRECT CLOUDFRONT ARN (no account ID)
-  resource_arn = aws_cloudfront_distribution.ritual_roast_cdn.arn
-  web_acl_arn  = aws_wafv2_web_acl.ritual_roast_waf.arn
-}
+# resource "aws_wafv2_web_acl_association" "ritual_roast_waf_attach" {
+#   depends_on = [aws_cloudfront_distribution.ritual_roast_cdn]
+#
+#   # CORRECT CLOUDFRONT ARN (no account ID)
+#   resource_arn = aws_cloudfront_distribution.ritual_roast_cdn.arn
+#   web_acl_arn  = aws_wafv2_web_acl.ritual_roast_waf.arn
+# }

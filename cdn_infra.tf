@@ -118,29 +118,31 @@ resource "aws_cloudfront_distribution" "ritual_roast_cdn" {
 }
 
 # --------------------------------------------------------
-# S3 BUCKET POLICY (UPDATED — NO CIRCULAR DEPENDENCY)
+# S3 BUCKET POLICY (FIXED FOR OAC + CLOUDFRONT)
 # --------------------------------------------------------
 resource "aws_s3_bucket_policy" "ritual_roast_policy" {
   bucket = aws_s3_bucket.ritual_roast_static.id
 
   policy = jsonencode({
     Version = "2012-10-17"
-    Statement = [{
-      Sid    = "AllowCloudFrontService"
-      Effect = "Allow"
-      Principal = {
-        Service = "cloudfront.amazonaws.com"
-      }
-      Action   = "s3:GetObject"
-      Resource = "${aws_s3_bucket.ritual_roast_static.arn}/*"
+    Statement = [
+      {
+        Sid    = "AllowCloudFrontAccess"
+        Effect = "Allow"
+        Principal = {
+          Service = "cloudfront.amazonaws.com"
+        }
+        Action   = "s3:GetObject"
+        Resource = "${aws_s3_bucket.ritual_roast_static.arn}/*"
 
-      Condition = {
-        StringEquals = {
-          # FIXED — CORRECT CLOUDFRONT SOURCE ARN
-          "AWS:SourceArn" = aws_cloudfront_distribution.ritual_roast_cdn.arn
+        Condition = {
+          StringEquals = {
+            # CORRECT CLOUDFRONT ARN (global, no account ID)
+            "AWS:SourceArn" = aws_cloudfront_distribution.ritual_roast_cdn.arn
+          }
         }
       }
-    }]
+    ]
   })
 }
 
@@ -150,7 +152,7 @@ resource "aws_s3_bucket_policy" "ritual_roast_policy" {
 resource "aws_wafv2_web_acl" "ritual_roast_waf" {
   name        = "ritual-roast-waf"
   description = "WAF for CloudFront"
-  scope       = "CLOUDFRONT"   # REQUIRED for CloudFront
+  scope       = "CLOUDFRONT"
 
   default_action {
     allow {}
@@ -191,6 +193,7 @@ resource "aws_wafv2_web_acl" "ritual_roast_waf" {
 resource "aws_wafv2_web_acl_association" "ritual_roast_waf_attach" {
   depends_on = [aws_cloudfront_distribution.ritual_roast_cdn]
 
+  # CORRECT CLOUDFRONT ARN (no account ID)
   resource_arn = aws_cloudfront_distribution.ritual_roast_cdn.arn
   web_acl_arn  = aws_wafv2_web_acl.ritual_roast_waf.arn
 }

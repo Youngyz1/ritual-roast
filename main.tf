@@ -44,6 +44,10 @@ resource "aws_security_group" "alb_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
 # ECS Task Security Group
@@ -53,7 +57,7 @@ resource "aws_security_group" "ecs_sg" {
   vpc_id      = module.network.vpc_id
 
   ingress {
-    description     = "ALB_to_ECS"
+    description     = "ALB to ECS"
     from_port       = 80
     to_port         = 80
     protocol        = "tcp"
@@ -66,6 +70,10 @@ resource "aws_security_group" "ecs_sg" {
     protocol    = "-1"
     cidr_blocks = ["0.0.0.0/0"]
   }
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
 # ==========================================================
@@ -73,6 +81,10 @@ resource "aws_security_group" "ecs_sg" {
 # ==========================================================
 resource "aws_ecs_cluster" "this" {
   name = "ritual-roast-cluster"
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
 # ==========================================================
@@ -81,6 +93,10 @@ resource "aws_ecs_cluster" "this" {
 resource "aws_cloudwatch_log_group" "ecs_logs" {
   name              = "/ecs/ritual-roast"
   retention_in_days = 14
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
 # ==========================================================
@@ -89,11 +105,21 @@ resource "aws_cloudwatch_log_group" "ecs_logs" {
 resource "aws_db_subnet_group" "db_subnet" {
   name       = "ritual-roast-db-subnet-group"
   subnet_ids = module.network.database_subnets
+
+  tags = {
+    Project = "ritual-roast"
+  }
+}
+
+resource "random_password" "db_password" {
+  length  = 16
+  special = true
 }
 
 resource "aws_db_instance" "mysql" {
   identifier           = "ritual-roast-mysql"
   engine               = "mysql"
+  engine_version       = "8.0"
   instance_class       = "db.t3.micro"
   allocated_storage    = 20
   username             = var.db_username
@@ -102,6 +128,10 @@ resource "aws_db_instance" "mysql" {
   multi_az             = true
   publicly_accessible  = false
   skip_final_snapshot  = true
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
 # ==========================================================
@@ -112,6 +142,10 @@ resource "aws_lb" "app" {
   load_balancer_type = "application"
   subnets            = module.network.public_subnets
   security_groups    = [aws_security_group.alb_sg.id]
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
 resource "aws_lb_target_group" "app_tg" {
@@ -120,6 +154,19 @@ resource "aws_lb_target_group" "app_tg" {
   protocol    = "HTTP"
   vpc_id      = module.network.vpc_id
   target_type = "ip"
+
+  health_check {
+    path                = "/"
+    interval            = 30
+    timeout             = 5
+    healthy_threshold   = 2
+    unhealthy_threshold = 2
+    matcher             = "200-399"
+  }
+
+  tags = {
+    Project = "ritual-roast"
+  }
 }
 
 resource "aws_lb_listener" "app_listener" {

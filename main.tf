@@ -114,19 +114,14 @@ resource "aws_db_subnet_group" "db_subnet" {
 resource "aws_db_instance" "mysql" {
   identifier           = "ritual-roast-mysql"
   engine               = "mysql"
-  engine_version       = "8.0"
   instance_class       = "db.t3.micro"
   allocated_storage    = 20
   username             = var.db_username
-  password             = aws_secretsmanager_secret_version.db_version.secret_string["password"]
+  password             = jsondecode(aws_secretsmanager_secret_version.db_version.secret_string)["password"]
   db_subnet_group_name = aws_db_subnet_group.db_subnet.name
   multi_az             = true
   publicly_accessible  = false
   skip_final_snapshot  = true
-
-  tags = {
-    Project = "ritual-roast"
-  }
 }
 
 # ==========================================================

@@ -1,14 +1,4 @@
 # --------------------------------------------------------
-# PROVIDERS (ACM must be in us-east-1 for CloudFront)
-# --------------------------------------------------------
-provider "aws" {
-  alias  = "virginia"
-  region = "us-east-1"
-}
-
-data "aws_caller_identity" "current" {}
-
-# --------------------------------------------------------
 # S3 STATIC SITE BUCKET
 # --------------------------------------------------------
 resource "aws_s3_bucket" "ritual_roast_static" {

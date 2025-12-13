@@ -82,21 +82,21 @@ locals {
 # =========================================================
 # ROUTE53 DNS VALIDATION
 # =========================================================
-resource "aws_route53_record" "ritual_roast_cert_validation" {
-  count   = var.hosted_zone_id == "" ? 0 : 1
-  zone_id = var.hosted_zone_id
-  name    = local.cert_validation_options[0].resource_record_name
-  type    = local.cert_validation_options[0].resource_record_type
-  ttl     = 300
-  records = [local.cert_validation_options[0].resource_record_value]
-}
+# resource "aws_route53_record" "ritual_roast_cert_validation" {
+#   count   = var.hosted_zone_id == "" ? 0 : 1
+#   zone_id = var.hosted_zone_id
+#   name    = local.cert_validation_options[0].resource_record_name
+#   type    = local.cert_validation_options[0].resource_record_type
+#   ttl     = 300
+#   records = [local.cert_validation_options[0].resource_record_value]
+# }
 
-resource "aws_acm_certificate_validation" "ritual_roast_validation" {
-  provider                = aws.virginia
-  count                   = var.hosted_zone_id == "" ? 0 : 1
-  certificate_arn         = aws_acm_certificate.ritual_roast_cert.arn
-  validation_record_fqdns = [aws_route53_record.ritual_roast_cert_validation[0].fqdn]
-}
+# resource "aws_acm_certificate_validation" "ritual_roast_validation" {
+#   provider                = aws.virginia
+#   count                   = var.hosted_zone_id == "" ? 0 : 1
+#   certificate_arn         = aws_acm_certificate.ritual_roast_cert.arn
+#   validation_record_fqdns = [aws_route53_record.ritual_roast_cert_validation[0].fqdn]
+# }
 
 # =========================================================
 # CLOUDFRONT DISTRIBUTION
@@ -106,10 +106,10 @@ resource "aws_cloudfront_distribution" "ritual_roast_cdn" {
   is_ipv6_enabled     = true
   default_root_object = "index.html"
 
-  aliases = compact([
-    var.domain,
-    var.subdomain != "@" ? "${var.subdomain}.${var.domain}" : null
-  ])
+  # aliases = compact([
+  #   var.domain,
+  #   var.subdomain != "@" ? "${var.subdomain}.${var.domain}" : null
+  # ])
 
   origin {
     domain_name              = aws_s3_bucket.ritual_roast_static.bucket_regional_domain_name

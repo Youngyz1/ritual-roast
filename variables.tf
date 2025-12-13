@@ -41,10 +41,9 @@ variable "db_username" {
 }
 
 variable "db_password" {
-  description = "RDS master password (must be >= 8 chars)"
+  description = "Database password (passed via GitHub Actions secret)"
   type        = string
   sensitive   = true
-  default     = "StrongP@ssw0rd123"
 }
 
 variable "env" {

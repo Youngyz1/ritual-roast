@@ -53,9 +53,12 @@ jobs:
 
       - name: Build + Push Docker Image
         run: |
-          IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPO_NAME }}:latest"
+          IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ secrets.AWS_REGION }}.amazonaws.com/${{ secrets.ECR_REPO_NAME }}:${GITHUB_SHA}"
+          echo "Docker image: $IMAGE"
           docker build -t $IMAGE .
           docker push $IMAGE
+        env:
+          GITHUB_SHA: ${{ github.sha }}
 
   terraform-deploy:
     needs: build-and-push
@@ -74,11 +77,12 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Terraform Apply (deploy with new image)
+      - name: Terraform Apply (update ECS service with new image)
         env:
           TF_VAR_domain: ${{ secrets.DOMAIN }}
           TF_VAR_hosted_zone_id: ${{ secrets.HOSTED_ZONE_ID }}
           TF_VAR_db_password: ${{ secrets.DB_PASSWORD }}
+          TF_VAR_docker_image_tag: ${{ github.sha }}
         run: |
           terraform init
           terraform apply -auto-approve

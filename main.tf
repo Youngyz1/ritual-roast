@@ -1,9 +1,16 @@
 # ==========================================================
-# Provider
+# Terraform Backend (REMOTE STATE) ✅ FIX 1
 # ==========================================================
-provider "aws" {
-  region = var.region
+terraform {
+  backend "s3" {
+    bucket         = "ritual-roast-terraform-state"
+    key            = "prod/terraform.tfstate"
+    region         = "us-east-1"
+    dynamodb_table = "terraform-locks"
+    encrypt        = true
+  }
 }
+
 # ==========================================================
 # VPC Module
 # ==========================================================
@@ -29,8 +36,6 @@ module "network" {
 # ==========================================================
 # Security Groups
 # ==========================================================
-
-# ALB Security Group
 resource "aws_security_group" "alb_sg" {
   name        = "ritual-roast-alb-sg"
   description = "Security group for ALB"
@@ -56,7 +61,6 @@ resource "aws_security_group" "alb_sg" {
   }
 }
 
-# ECS Task Security Group
 resource "aws_security_group" "ecs_sg" {
   name        = "ritual-roast-ecs-sg"
   description = "ECS tasks SG"

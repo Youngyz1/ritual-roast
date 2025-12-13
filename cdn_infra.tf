@@ -45,17 +45,17 @@ resource "aws_s3_bucket_public_access_block" "ritual_roast_public" {
 }
 
 # =========================================================
-# CLOUDFRONT ORIGIN ACCESS CONTROL (STABLE)
+# CLOUDFRONT ORIGIN ACCESS CONTROL (REQUIRED)
 # =========================================================
 resource "aws_cloudfront_origin_access_control" "ritual_roast_oac" {
-  name                              = "ritual-roast-oac-${var.env}"
+  name                              = "ritual-roast-oac-prod"
   origin_access_control_origin_type = "s3"
   signing_behavior                  = "always"
   signing_protocol                  = "sigv4"
 }
 
 # =========================================================
-# ACM CERTIFICATE (US-EAST-1, STABLE)
+# ACM CERTIFICATE (US-EAST-1)
 # =========================================================
 resource "aws_acm_certificate" "ritual_roast_cert" {
   provider          = aws.virginia
@@ -80,11 +80,10 @@ locals {
 }
 
 # =========================================================
-# ROUTE53 DNS VALIDATION (OPTIONAL)
+# ROUTE53 DNS VALIDATION
 # =========================================================
 resource "aws_route53_record" "ritual_roast_cert_validation" {
-  count = var.hosted_zone_id == "" ? 0 : 1
-
+  count   = var.hosted_zone_id == "" ? 0 : 1
   zone_id = var.hosted_zone_id
   name    = local.cert_validation_options[0].resource_record_name
   type    = local.cert_validation_options[0].resource_record_type
@@ -93,30 +92,24 @@ resource "aws_route53_record" "ritual_roast_cert_validation" {
 }
 
 resource "aws_acm_certificate_validation" "ritual_roast_validation" {
-  provider = aws.virginia
-  count    = var.hosted_zone_id == "" ? 0 : 1
-
+  provider                = aws.virginia
+  count                   = var.hosted_zone_id == "" ? 0 : 1
   certificate_arn         = aws_acm_certificate.ritual_roast_cert.arn
   validation_record_fqdns = [aws_route53_record.ritual_roast_cert_validation[0].fqdn]
 }
 
-output "acm_dns_validation_cname" {
-  description = "DNS records required for ACM validation"
-  value       = local.cert_validation_options
-}
-
 # =========================================================
-# CLOUDFRONT DISTRIBUTION (IDEMPOTENT)
+# CLOUDFRONT DISTRIBUTION
 # =========================================================
 resource "aws_cloudfront_distribution" "ritual_roast_cdn" {
   enabled             = true
   is_ipv6_enabled     = true
   default_root_object = "index.html"
 
-  aliases = [
+  aliases = compact([
     var.domain,
     var.subdomain != "@" ? "${var.subdomain}.${var.domain}" : null
-  ]
+  ])
 
   origin {
     domain_name              = aws_s3_bucket.ritual_roast_static.bucket_regional_domain_name
@@ -151,18 +144,7 @@ resource "aws_cloudfront_distribution" "ritual_roast_cdn" {
 
   lifecycle {
     prevent_destroy = true
-
-    # CloudFront loves to diff harmless things
-    ignore_changes = [
-      default_cache_behavior,
-      viewer_certificate,
-      restrictions
-    ]
   }
-
-  depends_on = [
-    aws_acm_certificate_validation.ritual_roast_validation
-  ]
 
   tags = {
     Project = "ritual-roast"
@@ -171,7 +153,7 @@ resource "aws_cloudfront_distribution" "ritual_roast_cdn" {
 }
 
 # =========================================================
-# S3 BUCKET POLICY (CLOUDFRONT OAC SAFE)
+# S3 BUCKET POLICY (SECURE OAC)
 # =========================================================
 resource "aws_s3_bucket_policy" "ritual_roast_policy" {
   bucket = aws_s3_bucket.ritual_roast_static.id
@@ -179,7 +161,7 @@ resource "aws_s3_bucket_policy" "ritual_roast_policy" {
   policy = jsonencode({
     Version = "2012-10-17"
     Statement = [{
-      Sid    = "AllowCloudFrontAccess"
+      Sid    = "AllowCloudFrontOAC"
       Effect = "Allow"
       Principal = {
         Service = "cloudfront.amazonaws.com"
@@ -193,57 +175,59 @@ resource "aws_s3_bucket_policy" "ritual_roast_policy" {
       }
     }]
   })
-
-  depends_on = [
-    aws_cloudfront_distribution.ritual_roast_cdn
-  ]
 }
+
+# =========================================================
+# WAF (MANUAL – NOT MANAGED BY TERRAFORM)
+# =========================================================
+# Intentionally commented
 
 # =========================================================
 # WAF (GLOBAL, STABLE)
 # =========================================================
-resource "aws_wafv2_web_acl" "ritual_roast_waf" {
-  name  = "ritual-roast-waf"
-  scope = "CLOUDFRONT"
-
-  default_action {
-    allow {}
-  }
-
-  visibility_config {
-    metric_name                = "ritual-roast-waf"
-    cloudwatch_metrics_enabled = true
-    sampled_requests_enabled   = true
-  }
-
-  rule {
-    name     = "AWS-Bot-Control"
-    priority = 1
-
-    statement {
-      managed_rule_group_statement {
-        vendor_name = "AWS"
-        name        = "AWSManagedRulesBotControlRuleSet"
-      }
-    }
-
-    override_action {
-      none {}
-    }
-
-    visibility_config {
-      metric_name                = "bot-control"
-      cloudwatch_metrics_enabled = true
-      sampled_requests_enabled   = true
-    }
-  }
-
-  lifecycle {
-    prevent_destroy = true
-  }
-}
-
-resource "aws_wafv2_web_acl_association" "ritual_roast_waf_attach" {
-  resource_arn = aws_cloudfront_distribution.ritual_roast_cdn.arn
-  web_acl_arn  = aws_wafv2_web_acl.ritual_roast_waf.arn
-}
+# Commented for import if already exists
+# resource "aws_wafv2_web_acl" "ritual_roast_waf" {
+#   name  = "ritual-roast-waf"
+#   scope = "CLOUDFRONT"
+#
+#   default_action {
+#     allow {}
+#   }
+#
+#   visibility_config {
+#     metric_name                = "ritual-roast-waf"
+#     cloudwatch_metrics_enabled = true
+#     sampled_requests_enabled   = true
+#   }
+#
+#   rule {
+#     name     = "AWS-Bot-Control"
+#     priority = 1
+#
+#     statement {
+#       managed_rule_group_statement {
+#         vendor_name = "AWS"
+#         name        = "AWSManagedRulesBotControlRuleSet"
+#       }
+#     }
+#
+#     override_action {
+#       none {}
+#     }
+#
+#     visibility_config {
+#       metric_name                = "bot-control"
+#       cloudwatch_metrics_enabled = true
+#       sampled_requests_enabled   = true
+#     }
+#   }
+#
+#   lifecycle {
+#     prevent_destroy = true
+#   }
+# }
+#
+# resource "aws_wafv2_web_acl_association" "ritual_roast_waf_attach" {
+#   resource_arn = aws_cloudfront_distribution.ritual_roast_cdn.arn
+#   web_acl_arn  = aws_wafv2_web_acl.ritual_roast_waf.arn
+# }

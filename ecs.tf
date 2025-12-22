@@ -25,7 +25,7 @@ resource "aws_ecs_task_definition" "ritual_roast_task_definition" {
   container_definitions = jsonencode([
     {
       name      = "ritualroast"
-      image     = var.ecr_image_uri
+      image     = "${aws_ecr_repository.ritual_roast.repository_url}:latest"
       essential = true
 
       portMappings = [

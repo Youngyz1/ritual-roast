@@ -25,7 +25,7 @@ resource "aws_ecs_task_definition" "ritual_roast_task_definition" {
   container_definitions = jsonencode([
     {
       name      = "ritualroast"
-      image     = "${aws_ecr_repository.ritual_roast.repository_url}:latest"
+      image     = "${aws_ecr_repository.ritual_roast.repository_url}:${var.image_tag}"
       essential = true
 
       portMappings = [
@@ -135,4 +135,12 @@ resource "aws_appautoscaling_policy" "ecs_service_scaling_policy" {
     scale_in_cooldown  = 300
     scale_out_cooldown = 300
   }
+}
+
+# =========================
+# Variable for Image Tag
+# =========================
+variable "image_tag" {
+  description = "Docker image tag to deploy from ECR"
+  type        = string
 }

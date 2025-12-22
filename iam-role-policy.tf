@@ -1,7 +1,9 @@
-#IAM Policy
+# =========================
+# IAM Policy - Allow ECS Tasks to Read DB Secret
+# =========================
 resource "aws_iam_policy" "ritual_roast_allow_read_db_secret_policy" {
   name        = "ritual-roast-allow-read-db-secret-policy"
-  description = "Allow ECS tasks to read DB secret"
+  description = "Allow ECS tasks and execution role to read DB secret"
 
   policy = jsonencode({
     Version = "2012-10-17"
@@ -15,7 +17,9 @@ resource "aws_iam_policy" "ritual_roast_allow_read_db_secret_policy" {
   })
 }
 
-#ECS TASK ROLE
+# =========================
+# ECS TASK ROLE
+# =========================
 resource "aws_iam_role" "ritual_roast_ecs_task_role" {
   name = "ritual-roast-ecs-task-role"
 
@@ -36,7 +40,9 @@ resource "aws_iam_role_policy_attachment" "task_read_secret" {
   policy_arn = aws_iam_policy.ritual_roast_allow_read_db_secret_policy.arn
 }
 
-#ECS EXECUTION ROLE
+# =========================
+# ECS EXECUTION ROLE
+# =========================
 resource "aws_iam_role" "ritual_roast_ecs_execution_role" {
   name = "ritual-roast-ecs-execution-role"
 
@@ -52,7 +58,14 @@ resource "aws_iam_role" "ritual_roast_ecs_execution_role" {
   })
 }
 
+# Attach default ECS execution policy (ECR + CloudWatch Logs)
 resource "aws_iam_role_policy_attachment" "ecs_execution_policy" {
   role       = aws_iam_role.ritual_roast_ecs_execution_role.name
   policy_arn = "arn:aws:iam::aws:policy/service-role/AmazonECSTaskExecutionRolePolicy"
+}
+
+# Attach custom policy to allow Secrets Manager access
+resource "aws_iam_role_policy_attachment" "ecs_execution_read_secret" {
+  role       = aws_iam_role.ritual_roast_ecs_execution_role.name
+  policy_arn = aws_iam_policy.ritual_roast_allow_read_db_secret_policy.arn
 }

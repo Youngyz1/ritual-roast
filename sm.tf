@@ -53,6 +53,14 @@ resource "aws_lambda_function" "secret_rotation_lambda" {
 }
 
 # =========================
+# Random ID for Lambda Permission
+# =========================
+
+resource "random_id" "lambda_suffix" {
+  byte_length = 4
+}
+
+# =========================
 # Lambda Permission for Secrets Manager
 # =========================
 

@@ -11,8 +11,11 @@ resource "aws_s3_bucket" "rr_alb_logs" {
   tags = {
     Name = "ritual-roast-alb-logs"
   }
+}
 
-  # Optional: enable block public access for safety
+# Block public access settings must be defined separately
+resource "aws_s3_bucket_public_access_block" "rr_alb_logs_block" {
+  bucket                  = aws_s3_bucket.rr_alb_logs.id
   block_public_acls       = true
   block_public_policy     = true
   ignore_public_acls      = true

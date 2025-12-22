@@ -32,8 +32,8 @@ jobs:
       - name: Terraform Init & Apply (Infra)
         run: |
           terraform init -input=false
-          # Infra apply without ecr_image_uri
-          terraform apply -auto-approve
+          terraform apply -auto-approve \
+            -var="ecr_image_uri=dummy"  # Prevents error during initial infra setup
 
 # ---------------------------
 # 2️⃣ Build & Push Docker Image
@@ -41,6 +41,8 @@ jobs:
   build-and-push:
     needs: terraform-infra
     runs-on: ubuntu-latest
+    outputs:
+      image_uri: ${{ steps.push-image.outputs.image_uri }}
     steps:
       - name: Checkout Repo
         uses: actions/checkout@v4
@@ -59,11 +61,12 @@ jobs:
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
       - name: Build and Push Docker Image
+        id: push-image
         run: |
           IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"
-          echo "Building and pushing image: $IMAGE"
           docker build -t $IMAGE .
           docker push $IMAGE
+          echo "image_uri=$IMAGE" >> $GITHUB_OUTPUT
 
 # ---------------------------
 # 3️⃣ Application Deployment (ECS)
@@ -88,6 +91,5 @@ jobs:
       - name: Terraform Init & Apply (App)
         run: |
           terraform init -input=false
-          # App apply with ecr_image_uri from Docker push
           terraform apply -auto-approve \
-            -var="ecr_image_uri=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"
+            -var="ecr_image_uri=${{ needs.build-and-push.outputs.image_uri }}"

@@ -1,4 +1,4 @@
-name: Ritual Roast CI/CD - Terraform + Docker + ECS + HTTPS
+name: Ritual Roast CI/CD - Terraform + Docker + ECS
 
 on:
   push:
@@ -10,7 +10,10 @@ env:
 
 jobs:
 
-  terraform-init:
+# ---------------------------
+# 1️⃣ Infrastructure Provisioning
+# ---------------------------
+  terraform-infra:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -26,15 +29,16 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Terraform Init + Apply (Infrastructure)
-        env:
-          TF_VAR_domain_name: ${{ secrets.DOMAIN }}
+      - name: Terraform Init & Apply (Infra)
         run: |
-          terraform init -input=false -reconfigure
-          terraform apply -auto-approve
+          terraform -chdir=terraform/infra init -input=false
+          terraform -chdir=terraform/infra apply -auto-approve
 
+# ---------------------------
+# 2️⃣ Build & Push Docker Image
+# ---------------------------
   build-and-push:
-    needs: terraform-init
+    needs: terraform-infra
     runs-on: ubuntu-latest
     steps:
       - name: Checkout Repo
@@ -54,15 +58,15 @@ jobs:
             ${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com
 
       - name: Build and Push Docker Image
-        env:
-          IMAGE_TAG: ${{ github.sha }}
         run: |
-          IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${IMAGE_TAG}"
-          echo "Building image: $IMAGE"
+          IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"
           docker build -t $IMAGE .
           docker push $IMAGE
 
-  terraform-deploy:
+# ---------------------------
+# 3️⃣ Application Deployment (ECS)
+# ---------------------------
+  terraform-app:
     needs: build-and-push
     runs-on: ubuntu-latest
     steps:
@@ -79,10 +83,8 @@ jobs:
       - name: Setup Terraform
         uses: hashicorp/setup-terraform@v2
 
-      - name: Terraform Apply (Deploy New Image)
-        env:
-          TF_VAR_domain_name: ${{ secrets.DOMAIN }}
-          TF_VAR_ecr_image_uri: "${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"
+      - name: Terraform Init & Apply (App)
         run: |
-          terraform init -input=false -reconfigure
-          terraform apply -auto-approve
+          terraform -chdir=terraform/app init -input=false
+          terraform -chdir=terraform/app apply -auto-approve \
+            -var="ecr_image_uri=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"

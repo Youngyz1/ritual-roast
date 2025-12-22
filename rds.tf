@@ -23,7 +23,7 @@ resource "aws_db_subnet_group" "ritual_roast_db_subnet_group" {
 resource "random_password" "db_master_password" {
   length           = 16
   special          = true
-  override_characters = "!#$%^&*()-_=+[]{}<>:?" # allowed special chars
+  override_special = "!#$%^&*()-_=+[]{}<>:?" # allowed special chars
 }
 
 # =========================
@@ -45,22 +45,3 @@ resource "aws_db_instance" "ritual_roast_db" {
   multi_az            = false
 
   vpc_security_group_ids = [aws_security_group.rr_data_sg.id]
-  db_subnet_group_name   = aws_db_subnet_group.ritual_roast_db_subnet_group.name
-
-  storage_encrypted          = false      # optional
-  auto_minor_version_upgrade = true
-
-  tags = {
-    Name = "ritual-roast-db"
-    App  = "ritual-roast"
-  }
-
-  lifecycle {
-    prevent_destroy = false
-  }
-
-  depends_on = [
-    aws_db_subnet_group.ritual_roast_db_subnet_group,
-    aws_security_group.rr_data_sg
-  ]
-}

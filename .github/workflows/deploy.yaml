@@ -31,8 +31,8 @@ jobs:
 
       - name: Terraform Init & Apply (Infra)
         run: |
-          terraform -chdir=terraform/infra init -input=false
-          terraform -chdir=terraform/infra apply -auto-approve
+          terraform init -input=false
+          terraform apply -auto-approve
 
 # ---------------------------
 # 2️⃣ Build & Push Docker Image
@@ -85,6 +85,6 @@ jobs:
 
       - name: Terraform Init & Apply (App)
         run: |
-          terraform -chdir=terraform/app init -input=false
-          terraform -chdir=terraform/app apply -auto-approve \
+          terraform init -input=false
+          terraform apply -auto-approve \
             -var="ecr_image_uri=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"

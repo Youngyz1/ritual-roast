@@ -57,7 +57,7 @@ resource "aws_lambda_function" "secret_rotation_lambda" {
 # =========================
 
 resource "aws_lambda_permission" "allow_secretsmanager" {
-  statement_id  = "AllowExecutionFromSecretsManager"
+  statement_id  = "AllowExecutionFromSecretsManager-${random_id.lambda_suffix.hex}"
   action        = "lambda:InvokeFunction"
   function_name = aws_lambda_function.secret_rotation_lambda.function_name
   principal     = "secretsmanager.amazonaws.com"

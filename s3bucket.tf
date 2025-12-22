@@ -1,3 +1,9 @@
+# Generate a random suffix to ensure the bucket name is globally unique
+resource "random_id" "bucket_suffix" {
+  byte_length = 4
+}
+
+# S3 bucket for ALB access logs
 resource "aws_s3_bucket" "rr_alb_logs" {
   bucket        = "ritual-roast-alb-logs-${random_id.bucket_suffix.hex}"
   force_destroy = true

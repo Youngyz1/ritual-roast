@@ -32,6 +32,7 @@ jobs:
       - name: Terraform Init & Apply (Infra)
         run: |
           terraform init -input=false
+          # Infra apply without ecr_image_uri
           terraform apply -auto-approve
 
 # ---------------------------
@@ -60,6 +61,7 @@ jobs:
       - name: Build and Push Docker Image
         run: |
           IMAGE="${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"
+          echo "Building and pushing image: $IMAGE"
           docker build -t $IMAGE .
           docker push $IMAGE
 
@@ -86,5 +88,6 @@ jobs:
       - name: Terraform Init & Apply (App)
         run: |
           terraform init -input=false
+          # App apply with ecr_image_uri from Docker push
           terraform apply -auto-approve \
             -var="ecr_image_uri=${{ secrets.AWS_ACCOUNT_ID }}.dkr.ecr.${{ env.AWS_REGION }}.amazonaws.com/${{ env.ECR_REPO_NAME }}:${{ github.sha }}"

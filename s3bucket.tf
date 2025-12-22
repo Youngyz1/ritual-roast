@@ -1,5 +1,5 @@
 resource "aws_s3_bucket" "rr_alb_logs" {
-  bucket        = "ritual-roast-alb-logs-${random_id.bucket_suffix.hex}"
+  bucket        = "ritual-roast-alb-logs"  # No random suffix
   force_destroy = true
 
   tags = {

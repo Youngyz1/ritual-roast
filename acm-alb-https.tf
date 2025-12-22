@@ -2,11 +2,11 @@
 # ACM Certificate
 # =========================================
 resource "aws_acm_certificate" "ritual_roast_cert" {
-  domain_name       = "ritusroast.online"
+  domain_name       = "ritualroast.online"
   validation_method = "DNS"
 
   subject_alternative_names = [
-    "www.ritusroast.online"
+    "www.ritualroast.online"
   ]
 
   lifecycle {

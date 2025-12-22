@@ -2,9 +2,9 @@
 # Route 53 Public Hosted Zone
 # =========================================
 resource "aws_route53_zone" "ritusroast" {
-  name = "ritusroast.online"
+  name = "ritualroast.online"
 
   tags = {
-    Name = "ritusroast.online"
+    Name = "ritualroast.online"
   }
 }

@@ -5,7 +5,7 @@ variable "vpc_cidr" {
 variable "domain_name" {
   description = "Primary domain name"
   type        = string
-  default     = "ritusroast.online"
+  default     = "ritualroast.online"
 }
 
 # Declare ECR Image URI

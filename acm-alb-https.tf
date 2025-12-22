@@ -31,7 +31,7 @@ resource "aws_route53_record" "ritual_roast_cert_validation" {
     }
   }
 
-  zone_id = aws_route53_zone.ritusroast.zone_id
+  zone_id = aws_route53_zone.ritualroast.zone_id
   name    = each.value.name
   type    = each.value.type
   records = [each.value.record]
@@ -39,13 +39,18 @@ resource "aws_route53_record" "ritual_roast_cert_validation" {
 }
 
 # =========================================
-# ACM Certificate Validation
+# ACM Certificate Validation (with explicit dependency)
 # =========================================
 resource "aws_acm_certificate_validation" "ritual_roast_cert_validation" {
   certificate_arn = aws_acm_certificate.ritual_roast_cert.arn
+
   validation_record_fqdns = [
     for record in aws_route53_record.ritual_roast_cert_validation :
     record.fqdn
+  ]
+
+  depends_on = [
+    aws_route53_record.ritual_roast_cert_validation
   ]
 }
 

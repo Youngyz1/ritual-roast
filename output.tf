@@ -87,7 +87,7 @@ output "ecs_task_role_arn" {
 
 output "route53_nameservers" {
   description = "Nameservers to add in Namecheap"
-  value       = aws_route53_zone.ritusroast.name_servers
+  value       = aws_route53_zone.ritualroast.name_servers
 }
 
 output "alb_dns_name" {

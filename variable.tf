@@ -12,4 +12,6 @@ variable "domain_name" {
 variable "ecr_image_uri" {
   description = "URI for the Docker image in ECR"
   type        = string
+  default     = "public.ecr.aws/nginx/nginx:latest"
 }
+
